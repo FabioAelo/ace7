@@ -32,6 +32,27 @@ button{border:0;border-radius:8px;padding:13px 16px;font-size:15px;font-weight:7
 .hidden{display:none!important}
 footer{text-align:center;padding:24px;color:#6c7585;font-size:13px}
 #dashboard{overflow-wrap:anywhere}
+
+/* Painel de torneios */
+main{max-width:900px}
+#dashboard .card{box-shadow:none;border:1px solid #e5eaf1}
+.dashboard-intro{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.dashboard-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:18px;margin-top:20px}
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+.field-full{grid-column:1/-1}
+.section-title{font-size:19px;margin:0 0 8px}
+.small-muted{font-size:13px;color:#647084;line-height:1.5}
+.tournament-list{display:grid;gap:12px;margin-top:16px}
+.tournament-item{border:1px solid #e0e6ee;border-radius:12px;padding:15px;background:#fff}
+.tournament-item h3{margin:0 0 8px;font-size:17px}
+.tournament-meta{font-size:13px;color:#5c687a;line-height:1.6}
+.status-pill{display:inline-block;border-radius:999px;padding:4px 9px;font-size:12px;font-weight:700;background:#eef2f7;color:#334155}
+.empty-state{padding:22px;border:1px dashed #cbd5e1;border-radius:12px;color:#647084;text-align:center;line-height:1.5}
+.secondary{background:#e9edf3;color:var(--navy)}
+.actions-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+button:disabled{opacity:.6;cursor:wait}
+@media(max-width:720px){.dashboard-grid{grid-template-columns:1fr}main{margin:20px auto}.card{padding:20px}header{padding:18px 5%}.field-grid{grid-template-columns:1fr}.field-full{grid-column:auto}}
+
 </style>
 </head>
 <body>
@@ -98,11 +119,61 @@ footer{text-align:center;padding:24px;color:#6c7585;font-size:13px}
     </div>
 
     <section id="dashboard" class="hidden">
-      <h1>Bem-vindo à ACE7!</h1>
-      <p class="muted">Você entrou na área do organizador.</p>
-      <div class="notice" id="userInfo"></div>
-      <p>Seu acesso está funcionando. A criação e o gerenciamento de torneios serão adicionados nas próximas etapas.</p>
-      <button class="primary" id="logoutBtn">Sair da conta</button>
+      <div class="dashboard-intro">
+        <div>
+          <h1>Painel do organizador</h1>
+          <p class="muted">Cadastre e acompanhe os torneios da sua organização.</p>
+          <div class="notice" id="userInfo"></div>
+        </div>
+        <button type="button" class="secondary" id="logoutBtn">Sair da conta</button>
+      </div>
+
+      <div id="tournamentNotice" class="notice hidden" role="status" aria-live="polite"></div>
+
+      <div class="dashboard-grid">
+        <section class="card">
+          <h2 class="section-title">Criar torneio</h2>
+          <p class="small-muted">O torneio será salvo como rascunho. A publicação e as inscrições online serão ativadas depois da validação das regras de segurança e dos pagamentos.</p>
+          <form id="tournamentForm">
+            <label for="tournamentName">Nome do torneio *</label>
+            <input id="tournamentName" maxlength="120" required placeholder="Ex.: 1º Open ACE7">
+
+            <div class="field-grid">
+              <div>
+                <label for="tournamentStart">Data de início</label>
+                <input id="tournamentStart" type="date">
+              </div>
+              <div>
+                <label for="tournamentEnd">Data de encerramento</label>
+                <input id="tournamentEnd" type="date">
+              </div>
+              <div class="field-full">
+                <label for="tournamentLocation">Local</label>
+                <input id="tournamentLocation" maxlength="180" placeholder="Clube, academia ou condomínio">
+              </div>
+              <div class="field-full">
+                <label for="tournamentFee">Valor da inscrição (R$)</label>
+                <input id="tournamentFee" type="number" min="0" max="1000000" step="0.01" value="0" inputmode="decimal" required>
+              </div>
+            </div>
+            <p class="small-muted">Comissão inicial configurada: 10% sobre o valor bruto da inscrição. Essa configuração ainda precisa de validação no servidor antes de aceitar pagamentos reais.</p>
+            <button class="primary" id="createTournamentBtn" type="submit">Salvar como rascunho</button>
+          </form>
+        </section>
+
+        <section class="card">
+          <div class="dashboard-intro">
+            <div>
+              <h2 class="section-title">Meus torneios</h2>
+              <p class="small-muted">Somente torneios vinculados à sua conta aparecem aqui.</p>
+            </div>
+            <button type="button" class="secondary" id="refreshTournamentsBtn">Atualizar lista</button>
+          </div>
+          <div id="tournamentList" class="tournament-list">
+            <div class="empty-state">Carregando torneios…</div>
+          </div>
+        </section>
+      </div>
     </section>
 
     <div id="message" class="notice hidden" role="status" aria-live="polite"></div>
@@ -164,11 +235,187 @@ footer{text-align:center;padding:24px;color:#6c7585;font-size:13px}
       authArea.classList.add('hidden');
       dashboard.classList.remove('hidden');
       $('userInfo').textContent = 'Conta: ' + user.email;
+      // Agenda a consulta para depois que o callback de autenticação terminar.
+      setTimeout(() => {
+        loadTournaments(user).catch(error => {
+          showTournamentMessage(error.message || 'Não foi possível carregar os torneios.', true);
+        });
+      }, 0);
     } else {
       dashboard.classList.add('hidden');
       authArea.classList.remove('hidden');
     }
   }
+
+
+  function showTournamentMessage(text, error = false) {
+    const box = $('tournamentNotice');
+    box.textContent = text;
+    box.classList.remove('hidden', 'error');
+    if (error) box.classList.add('error');
+  }
+
+  function clearTournamentMessage() {
+    const box = $('tournamentNotice');
+    box.textContent = '';
+    box.classList.add('hidden');
+    box.classList.remove('error');
+  }
+
+  function formatBRL(cents) {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+      .format((Number(cents) || 0) / 100);
+  }
+
+  function formatDate(value) {
+    if (!value) return 'Não informada';
+    const parts = value.split('-');
+    return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : value;
+  }
+
+  function makeTournamentCard(tournament) {
+    const article = document.createElement('article');
+    article.className = 'tournament-item';
+
+    const heading = document.createElement('h3');
+    heading.textContent = tournament.name || 'Torneio sem nome';
+    article.appendChild(heading);
+
+    const status = document.createElement('span');
+    status.className = 'status-pill';
+    status.textContent = tournament.status === 'published' ? 'Publicado' :
+      tournament.status === 'cancelled' ? 'Cancelado' :
+      tournament.status === 'finished' ? 'Finalizado' : 'Rascunho';
+    article.appendChild(status);
+
+    const meta = document.createElement('div');
+    meta.className = 'tournament-meta';
+    meta.textContent =
+      `Período: ${formatDate(tournament.start_date)} a ${formatDate(tournament.end_date)}\n` +
+      `Local: ${tournament.location || 'Não informado'}\n` +
+      `Inscrição: ${formatBRL(tournament.entry_fee_cents)}\n` +
+      `Comissão configurada: ${(Number(tournament.commission_bps || 1000) / 100).toLocaleString('pt-BR')}%`;
+    meta.style.whiteSpace = 'pre-line';
+    meta.style.marginTop = '10px';
+    article.appendChild(meta);
+    return article;
+  }
+
+  async function loadTournaments(knownUser = null) {
+    const list = $('tournamentList');
+    list.replaceChildren();
+    const loading = document.createElement('div');
+    loading.className = 'empty-state';
+    loading.textContent = 'Carregando torneios…';
+    list.appendChild(loading);
+
+    let user = knownUser;
+    if (!user) {
+      const { data: sessionData, error: sessionError } = await client.auth.getSession();
+      if (sessionError) throw sessionError;
+      user = sessionData.session?.user;
+    }
+    if (!user) {
+      list.replaceChildren();
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.textContent = 'Entre na sua conta para consultar os torneios.';
+      list.appendChild(empty);
+      return;
+    }
+
+    const { data, error } = await client
+      .from('ace7_tournaments')
+      .select('id, name, start_date, end_date, location, entry_fee_cents, commission_bps, status, created_at')
+      .eq('organizer_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    list.replaceChildren();
+
+    if (!data || data.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.textContent = 'Você ainda não cadastrou torneios. Use o formulário ao lado para criar o primeiro rascunho.';
+      list.appendChild(empty);
+      return;
+    }
+
+    data.forEach(tournament => list.appendChild(makeTournamentCard(tournament)));
+  }
+
+  $('tournamentForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    clearTournamentMessage();
+
+    const button = $('createTournamentBtn');
+    const name = $('tournamentName').value.trim();
+    const startDate = $('tournamentStart').value || null;
+    const endDate = $('tournamentEnd').value || null;
+    const location = $('tournamentLocation').value.trim() || null;
+    const feeValue = Number($('tournamentFee').value);
+
+    if (!name) {
+      showTournamentMessage('Informe o nome do torneio.', true);
+      return;
+    }
+    if (!Number.isFinite(feeValue) || feeValue < 0 || feeValue > 1000000) {
+      showTournamentMessage('Informe um valor de inscrição válido.', true);
+      return;
+    }
+    if (startDate && endDate && endDate < startDate) {
+      showTournamentMessage('A data de encerramento não pode ser anterior à data de início.', true);
+      return;
+    }
+
+    const amountCents = Math.round(feeValue * 100);
+    button.disabled = true;
+    button.textContent = 'Salvando…';
+
+    try {
+      const { data: sessionData, error: sessionError } = await client.auth.getSession();
+      if (sessionError) throw sessionError;
+      const user = sessionData.session?.user;
+      if (!user || !user.email_confirmed_at) {
+        throw new Error('Sua sessão expirou ou seu e-mail não foi confirmado. Entre novamente.');
+      }
+
+      const { error } = await client.from('ace7_tournaments').insert({
+        organizer_id: user.id,
+        name,
+        start_date: startDate,
+        end_date: endDate,
+        location,
+        entry_fee_cents: amountCents,
+        commission_bps: 1000,
+        status: 'draft'
+      });
+      if (error) throw error;
+
+      $('tournamentForm').reset();
+      $('tournamentFee').value = '0';
+      showTournamentMessage('Torneio salvo como rascunho com sucesso.');
+      await loadTournaments();
+    } catch (error) {
+      showTournamentMessage(
+        (error && error.message ? error.message : 'Não foi possível salvar o torneio.') +
+        ' Se a mensagem mencionar permissão, confira as políticas RLS e se o perfil do organizador existe.',
+        true
+      );
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Salvar como rascunho';
+    }
+  });
+
+  $('refreshTournamentsBtn').addEventListener('click', async () => {
+    clearTournamentMessage();
+    try {
+      await loadTournaments();
+    } catch (error) {
+      showTournamentMessage(error.message || 'Não foi possível atualizar a lista de torneios.', true);
+    }
+  });
 
   $('tabLogin').addEventListener('click', () => showForm('loginForm'));
   $('tabSignup').addEventListener('click', () => showForm('signupForm'));
