@@ -1,1 +1,306 @@
 
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ACE7 | Área do Organizador</title>
+<meta name="theme-color" content="#0B1F3B">
+<style>
+:root{--navy:#0B1F3B;--lime:#B7E033;--green:#1E6F46;--bg:#f3f5f8}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:#172033}
+header{background:var(--navy);color:white;padding:22px 5%;display:flex;justify-content:space-between;align-items:center;gap:16px}
+.brand{font-size:27px;font-weight:800;letter-spacing:1px}
+.brand span{color:var(--lime)}
+header a{color:white;text-decoration:none}
+main{max-width:520px;margin:38px auto;padding:0 16px}
+.card{background:white;padding:28px;border-radius:16px;box-shadow:0 8px 28px #0b1f3b12}
+h1{font-size:25px;margin:0 0 8px}
+.muted{color:#647084;line-height:1.5}
+label{display:block;font-weight:700;font-size:14px;margin:16px 0 7px}
+input,select{width:100%;padding:13px;border:1px solid #ccd3df;border-radius:8px;font-size:16px;background:white}
+button{border:0;border-radius:8px;padding:13px 16px;font-size:15px;font-weight:700;cursor:pointer}
+.primary{background:var(--navy);color:white;width:100%;margin-top:20px}
+.primary:hover{background:var(--green)}
+.tabs{display:flex;gap:8px;margin:22px 0}
+.tabs button{flex:1;background:#e9edf3;color:var(--navy)}
+.tabs button.active{background:var(--navy);color:white}
+.linkbtn{background:none;color:var(--green);padding:10px 0;text-decoration:underline}
+.notice{padding:12px;border-radius:8px;margin:14px 0;background:#edf3f8;line-height:1.5;overflow-wrap:anywhere}
+.notice.error{background:#fff0ee;color:#9b2520}
+.hidden{display:none!important}
+footer{text-align:center;padding:24px;color:#6c7585;font-size:13px}
+#dashboard{overflow-wrap:anywhere}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">ACE<span>7</span></div>
+  <a href="https://ace7.com.br/">Voltar ao site</a>
+</header>
+
+<main>
+  <section class="card">
+    <div id="authArea">
+      <h1>Área do Organizador</h1>
+      <p class="muted">Gerencie seus torneios de tênis em um só lugar.</p>
+
+      <div class="tabs">
+        <button type="button" id="tabLogin" class="active">Entrar</button>
+        <button type="button" id="tabSignup">Criar conta</button>
+      </div>
+
+      <form id="loginForm">
+        <label for="loginEmail">E-mail</label>
+        <input id="loginEmail" type="email" autocomplete="email" required>
+        <label for="loginPassword">Senha</label>
+        <input id="loginPassword" type="password" autocomplete="current-password" required>
+        <button class="primary" type="submit">Entrar na ACE7</button>
+        <button class="linkbtn" type="button" id="forgotBtn">Esqueci minha senha</button>
+      </form>
+
+      <form id="signupForm" class="hidden">
+        <label for="fullName">Nome completo</label>
+        <input id="fullName" autocomplete="name" required>
+        <label for="orgName">Nome da escola, academia, clube ou condomínio</label>
+        <input id="orgName" required>
+        <label for="orgType">Tipo de organização</label>
+        <select id="orgType" required>
+          <option value="tennis_school">Escola de tênis</option>
+          <option value="academy">Academia</option>
+          <option value="condominium">Condomínio</option>
+          <option value="club">Clube</option>
+          <option value="other">Outro</option>
+        </select>
+        <label for="signupEmail">E-mail</label>
+        <input id="signupEmail" type="email" autocomplete="email" required>
+        <label for="signupPassword">Criar senha (mínimo de 8 caracteres)</label>
+        <input id="signupPassword" type="password" minlength="8" autocomplete="new-password" required>
+        <button class="primary" type="submit">Criar minha conta</button>
+      </form>
+
+      <form id="resetForm" class="hidden">
+        <h2>Recuperar senha</h2>
+        <p class="muted">Informe seu e-mail para receber o link de recuperação.</p>
+        <label for="resetEmail">E-mail</label>
+        <input id="resetEmail" type="email" required>
+        <button class="primary" type="submit">Enviar link</button>
+        <button class="linkbtn" type="button" id="backLogin">Voltar ao login</button>
+      </form>
+
+      <form id="newPasswordForm" class="hidden">
+        <h2>Definir nova senha</h2>
+        <label for="newPassword">Nova senha (mínimo de 8 caracteres)</label>
+        <input id="newPassword" type="password" minlength="8" required autocomplete="new-password">
+        <button class="primary" type="submit">Salvar nova senha</button>
+      </form>
+    </div>
+
+    <section id="dashboard" class="hidden">
+      <h1>Bem-vindo à ACE7!</h1>
+      <p class="muted">Você entrou na área do organizador.</p>
+      <div class="notice" id="userInfo"></div>
+      <p>Seu acesso está funcionando. A criação e o gerenciamento de torneios serão adicionados nas próximas etapas.</p>
+      <button class="primary" id="logoutBtn">Sair da conta</button>
+    </section>
+
+    <div id="message" class="notice hidden" role="status" aria-live="polite"></div>
+  </section>
+</main>
+
+<footer>ACE7 — Seu jogo. Seu torneio. Sua vez.</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(() => {
+  // URL do projeto ACE7 no Supabase.
+  const SUPABASE_URL = 'https://xoazlhficbqpolkkxdmp.supabase.co';
+
+  // Substitua SOMENTE pelo valor da sua chave PUBLICÁVEL.
+  // Nunca use uma chave secret ou service_role neste arquivo.
+  const SUPABASE_PUBLISHABLE_KEY = 'COLE_SUA_CHAVE_PUBLICAVEL_AQUI';
+
+  const $ = id => document.getElementById(id);
+  const authArea = $('authArea');
+  const dashboard = $('dashboard');
+  const message = $('message');
+  let recoveryMode = false;
+
+  function showMessage(text, error = false) {
+    message.textContent = text;
+    message.classList.remove('hidden', 'error');
+    if (error) message.classList.add('error');
+  }
+
+  function clearMessage() {
+    message.textContent = '';
+    message.classList.add('hidden');
+    message.classList.remove('error');
+  }
+
+  function showForm(name) {
+    ['loginForm','signupForm','resetForm','newPasswordForm'].forEach(id =>
+      $(id).classList.toggle('hidden', id !== name)
+    );
+    $('tabLogin').classList.toggle('active', name === 'loginForm');
+    $('tabSignup').classList.toggle('active', name === 'signupForm');
+    clearMessage();
+  }
+
+  if (!window.supabase || SUPABASE_PUBLISHABLE_KEY === 'COLE_SUA_CHAVE_PUBLICAVEL_AQUI') {
+    showMessage('A página ainda precisa da chave publicável do Supabase. Configure-a no código antes de testar.', true);
+    return;
+  }
+
+  const client = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_PUBLISHABLE_KEY
+  );
+
+  async function renderSession(session) {
+    const user = session?.user;
+    if (user && user.email_confirmed_at) {
+      authArea.classList.add('hidden');
+      dashboard.classList.remove('hidden');
+      $('userInfo').textContent = 'Conta: ' + user.email;
+    } else {
+      dashboard.classList.add('hidden');
+      authArea.classList.remove('hidden');
+    }
+  }
+
+  $('tabLogin').addEventListener('click', () => showForm('loginForm'));
+  $('tabSignup').addEventListener('click', () => showForm('signupForm'));
+  $('forgotBtn').addEventListener('click', () => showForm('resetForm'));
+  $('backLogin').addEventListener('click', () => showForm('loginForm'));
+
+  $('signupForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    clearMessage();
+    const button = $('signupForm').querySelector('button[type="submit"]');
+    button.disabled = true;
+    button.textContent = 'Criando conta...';
+
+    try {
+      const { data, error } = await client.auth.signUp({
+        email: $('signupEmail').value.trim(),
+        password: $('signupPassword').value,
+        options: {
+          emailRedirectTo: window.location.origin + window.location.pathname,
+          data: {
+            full_name: $('fullName').value.trim(),
+            organization_name: $('orgName').value.trim(),
+            organization_type: $('orgType').value
+          }
+        }
+      });
+      if (error) throw error;
+
+      if (data.session) {
+        await renderSession(data.session);
+        showMessage('Conta criada. Você já está conectado.');
+      } else {
+        showMessage('Cadastro iniciado! Confira seu e-mail e clique no link de confirmação antes de entrar.');
+        showForm('loginForm');
+      }
+    } catch (error) {
+      showMessage(error.message || 'Não foi possível criar a conta.', true);
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Criar minha conta';
+    }
+  });
+
+  $('loginForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    clearMessage();
+    const button = $('loginForm').querySelector('button[type="submit"]');
+    button.disabled = true;
+    try {
+      const { data, error } = await client.auth.signInWithPassword({
+        email: $('loginEmail').value.trim(),
+        password: $('loginPassword').value
+      });
+      if (error) throw error;
+      if (!data.user?.email_confirmed_at) {
+        await client.auth.signOut();
+        showMessage('Confirme seu e-mail pelo link recebido antes de entrar.', true);
+        return;
+      }
+      await renderSession(data.session);
+      showMessage('Login realizado com sucesso.');
+    } catch (error) {
+      showMessage(error.message || 'Não foi possível entrar.', true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  $('resetForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    clearMessage();
+    try {
+      const { error } = await client.auth.resetPasswordForEmail(
+        $('resetEmail').value.trim(),
+        { redirectTo: window.location.origin + window.location.pathname }
+      );
+      if (error) throw error;
+      showMessage('Se houver uma conta para esse e-mail, você receberá as instruções de recuperação.');
+    } catch (error) {
+      showMessage(error.message || 'Não foi possível solicitar a recuperação.', true);
+    }
+  });
+
+  $('newPasswordForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    clearMessage();
+    if (!recoveryMode) {
+      showMessage('Abra primeiro o link de recuperação enviado ao seu e-mail.', true);
+      return;
+    }
+    try {
+      const { error } = await client.auth.updateUser({
+        password: $('newPassword').value
+      });
+      if (error) throw error;
+      recoveryMode = false;
+      $('newPassword').value = '';
+      showForm('loginForm');
+      showMessage('Senha atualizada. Entre com sua nova senha.');
+      await client.auth.signOut();
+    } catch (error) {
+      showMessage(error.message || 'Não foi possível atualizar a senha.', true);
+    }
+  });
+
+  $('logoutBtn').addEventListener('click', async () => {
+    const { error } = await client.auth.signOut();
+    if (error) {
+      showMessage(error.message, true);
+      return;
+    }
+    dashboard.classList.add('hidden');
+    authArea.classList.remove('hidden');
+    showForm('loginForm');
+    showMessage('Você saiu da sua conta.');
+  });
+
+  client.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      recoveryMode = true;
+      authArea.classList.remove('hidden');
+      dashboard.classList.add('hidden');
+      showForm('newPasswordForm');
+      showMessage('Defina sua nova senha.');
+      return;
+    }
+    await renderSession(session);
+  });
+
+  client.auth.getSession().then(({ data }) => renderSession(data.session));
+})();
+</script>
+</body>
+</html>
+
