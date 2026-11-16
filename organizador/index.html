@@ -553,8 +553,11 @@ footer{padding:26px 16px}
     showMessage('Você saiu da sua conta.');
   });
 
-  // O callback de autenticação não deve aguardar operações assíncronas.
-  // A sessão inicial é recebida pelo evento INITIAL_SESSION do Supabase.
+  // Mantém o login visível até a sessão inicial ser validada.
+  // Nunca deixa authArea e dashboard ocultos ao mesmo tempo.
+  authArea.classList.remove('hidden');
+  dashboard.classList.add('hidden');
+
   client.auth.onAuthStateChange((event, session) => {
     if (event === 'PASSWORD_RECOVERY') {
       recoveryMode = true;
@@ -564,12 +567,26 @@ footer{padding:26px 16px}
       showMessage('Defina sua nova senha.');
       return;
     }
-    if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-      setTimeout(() => {
-        renderSession(session);
-      }, 0);
+    if (['SIGNED_IN','SIGNED_OUT','TOKEN_REFRESHED','USER_UPDATED'].includes(event)) {
+      setTimeout(() => { renderSession(session); }, 0);
     }
   });
+
+  // Recupera explicitamente a sessão existente. Se o refresh token estiver
+  // inválido (HTTP 400), limpa apenas a sessão local e apresenta o login.
+  (async () => {
+    try {
+      const { data, error } = await client.auth.getSession();
+      if (error) throw error;
+      await renderSession(data.session);
+    } catch (error) {
+      try { await client.auth.signOut({ scope: 'local' }); } catch (_) {}
+      dashboard.classList.add('hidden');
+      authArea.classList.remove('hidden');
+      showForm('loginForm');
+      showMessage('Sua sessão anterior expirou. Entre novamente com seu e-mail e senha.');
+    }
+  })();
 })();
 </script>
 </body>
