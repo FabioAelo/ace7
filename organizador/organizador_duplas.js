@@ -21,7 +21,7 @@
   const style=document.createElement('style');style.textContent=css;document.head.appendChild(style);
   function boot(){
     const dashboard=document.getElementById('dashboard');
-    if(!dashboard||!window.supabase){setTimeout(boot,400);return;}
+    if(!dashboard||!window.ace7SupabaseClient){setTimeout(boot,400);return;}
     if(document.getElementById('ace7DoublesModule'))return;
     install(dashboard);
   }
@@ -40,8 +40,8 @@
       <div id="adPairs" style="margin-top:8px"><div class="empty">Selecione um torneio e uma categoria.</div></div></div>`;
     dashboard.appendChild(root);
     const $=id=>root.querySelector('#'+id);
-    // Mesmo projeto e armazenamento de sessão do painel original.
-    const db=window.supabase.createClient(URL,KEY);
+    // Reutiliza exatamente a instância Supabase do painel do organizador.
+    const db=window.ace7SupabaseClient;
     let tournamentId='',categoryId='',athletes=[];
     function say(t,err=false){$('adMessage').textContent=t;$('adMessage').classList.toggle('error',err);}
     function opt(v,t){const o=document.createElement('option');o.value=v;o.textContent=t;return o;}
