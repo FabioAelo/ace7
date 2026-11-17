@@ -248,6 +248,9 @@ footer{padding:26px 16px}
     SUPABASE_URL,
     SUPABASE_PUBLISHABLE_KEY
   );
+  // Compartilha a mesma instância Supabase com os módulos do painel.
+  // Evita múltiplos clientes GoTrue usando o mesmo armazenamento de sessão.
+  window.ace7SupabaseClient = client;
 
   async function renderSession(session) {
     const user = session?.user;
